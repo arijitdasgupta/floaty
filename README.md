@@ -2,9 +2,12 @@
 
 A simple web application that tracks multiple running totals with manual additions/subtractions and automatic monthly recurring values.
 
+<<<<<<< HEAD
 ## TODOs
 - [ ] Fix Github actions
 
+=======
+>>>>>>> 4b96b14 (initial commit)
 ## Features
 
 - **Multiple trackers** - Configure multiple independent number trackers
