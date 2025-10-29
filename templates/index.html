@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Floaty</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Floaty</h1>
+        <p class="subtitle">Track your numbers</p>
+        
+        <div class="events-section">
+            <div class="events-title">
+                <span>Trackers</span>
+            </div>
+            <div class="events-list" id="trackers">
+                {{range .Trackers}}
+                <div class="event-item">
+                    <div class="event-details">
+                        <a href="/{{.Slug}}">{{.Title}}</a>
+                    </div>
+                    <button class="btn-delete" onclick="deleteTracker('{{.Slug}}')">delete</button>
+                </div>
+                {{else}}
+                <div class="loading">No trackers yet. Create your first one below!</div>
+                {{end}}
+            </div>
+        </div>
+
+        <div class="events-section">
+            <div class="events-title">
+                <span>Create New Tracker</span>
+            </div>
+            <div class="controls">
+                <input type="text" id="tracker-title" placeholder="Tracker title" class="note-input">
+                <input type="text" id="tracker-slug" placeholder="slug (lowercase-with-hyphens)" class="note-input">
+                <div class="button-group">
+                    <button class="btn-add" onclick="createTracker()">create tracker</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function createTracker() {
+            const title = document.getElementById('tracker-title').value;
+            const slug = document.getElementById('tracker-slug').value;
+            
+            if (!title || !slug) {
+                alert('Please enter both title and slug');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/trackers/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title, slug })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    alert('Error: ' + error);
+                    return;
+                }
+                
+                window.location.reload();
+            } catch (error) {
+                console.error('Error creating tracker:', error);
+                alert('Failed to create tracker');
+            }
+        }
+
+        async function deleteTracker(slug) {
+            if (!confirm('Are you sure you want to delete this tracker? All data will be lost.')) {
+                return;
+            }
+
+            try {
+                await fetch('/api/trackers/delete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ slug })
+                });
+                
+                window.location.reload();
+            } catch (error) {
+                console.error('Error deleting tracker:', error);
+                alert('Failed to delete tracker');
+            }
+        }
+
+        document.getElementById('tracker-slug').addEventListener('input', (e) => {
+            e.target.value = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '');
+        });
+
+        document.getElementById('tracker-title').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                document.getElementById('tracker-slug').focus();
+            }
+        });
+
+        document.getElementById('tracker-slug').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') createTracker();
+        });
+    </script>
+</body>
+</html>
