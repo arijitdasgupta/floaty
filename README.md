@@ -2,12 +2,12 @@
 
 A simple web application that tracks multiple running totals with manual additions/subtractions and automatic monthly recurring values.
 
-<<<<<<< HEAD
 ## TODOs
-- [ ] Fix Github actions
+
+- [x] Fix Github actions
 
 =======
->>>>>>> 4b96b14 (initial commit)
+
 ## Features
 
 - **Multiple trackers** - Configure multiple independent number trackers
@@ -22,9 +22,10 @@ A simple web application that tracks multiple running totals with manual additio
 
 ## Quick Start
 
-### Inner Workings 
+### Inner Workings
 
 Each tracker gets:
+
 - Its own URL: `/{slug}`
 - Its own log file: `data/{slug}.log`
 - Its own API endpoints: `/api/{slug}/*`
@@ -32,11 +33,6 @@ Each tracker gets:
 ### Run Locally (Development)
 
 ```bash
-# Copy example config
-cp config.json.example config.json
-
-# Edit config.json to add your trackers
-
 # Run the server
 go run main.go
 ```
@@ -58,7 +54,7 @@ docker run -d -p 8080:8080 \
 ```
 
 **Important mounts:**
-- `config.json` - Your tracker configuration
+
 - `data/` - Directory where event logs are stored
 
 ### Docker Compose
@@ -66,7 +62,7 @@ docker run -d -p 8080:8080 \
 Create `docker-compose.yml`:
 
 ```yaml
-version: '3'
+version: "3"
 services:
   floaty:
     build: .
@@ -124,6 +120,7 @@ All changes are stored as events in `data/{slug}.log` as JSON lines:
 ### Automatic Recurring Events
 
 When data is requested:
+
 1. Load all events from log file
 2. Check time gap between last event and current time
 3. Generate synthetic recurring events for each month boundary crossed
@@ -139,9 +136,11 @@ Deleting a transaction appends a deletion marker to the log. The event remains i
 ## API Endpoints
 
 ### Homepage
+
 - `GET /` - List of all trackers
 
 ### Per-Tracker Endpoints
+
 - `GET /{slug}` - Tracker UI
 - `GET /api/{slug}/total` - Get current total
 - `GET /api/{slug}/events` - Get all events
@@ -152,6 +151,7 @@ Deleting a transaction appends a deletion marker to the log. The event remains i
 ## Data Persistence
 
 Event logs are stored in the `data/` directory:
+
 - `data/personal.log`
 - `data/business.log`
 - etc.
@@ -187,6 +187,7 @@ floaty/
 ### Recurring Event Logic
 
 Recurring events are generated on-demand when data is read. The system:
+
 1. Finds the last event timestamp
 2. Calculates how many months have passed
 3. Generates events for the 1st of each missed month
