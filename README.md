@@ -1,24 +1,30 @@
-# Floaty - Number Tracker with Automatic Monthly Additions
+# Floaty
 
-A simple web application that tracks multiple running totals with manual additions/subtractions and automatic monthly recurring values.
+## Multiple Numbers Rolling Totals
 
-## TODOs
+_THIS IS NOT A PRODUCTION GRADE APP, ONLY MEANT FOR (my own) PERSONAL USAGE_
 
-- [x] Fix Github actions
+A simple web application that tracks multiple rolling totals with manual additions/subtractions.
 
-=======
+_Almost entirely written with Claude Sonnet 4.5 (including this README)._
+
+This is entirely a personal tool I made to keep track of my things.
+I have zero plans to improve this as of now.
+_Neither do I endorse the style of code that is in `main.go`_.
+
+## Screenshots
+
+![Screenshot 1](./images/shot1.jpg)
+![Screenshot 2](./images/shot2.jpg)
 
 ## Features
 
 - **Multiple trackers** - Configure multiple independent number trackers
 - **Add/Subtract values** with optional notes
 - **Delete transactions** - Remove manual transactions with soft deletes
-- **Automatic monthly recurring additions** (100 on the 1st of each month)
-- **Event-sourced storage** - all changes logged to append-only files
-- **Catch-up mechanism** - if server is offline, recurring events are generated when data is read
-- **Minimal UI** - text-only design with serif fonts
-- **Mobile-friendly** - responsive design that works on all devices
-- **Dockerized** - fully self-contained deployment
+- **Event-sourced storage** - All changes logged to append-only files
+- **Mobile-friendly** - Rresponsive design that works on all devices
+- **Dockerized** - Fully self-contained deployment
 
 ## Quick Start
 
@@ -47,7 +53,6 @@ docker build -t floaty .
 
 # Run with config and data mounted
 docker run -d -p 8080:8080 \
-  -v $(pwd)/config.json:/root/config.json \
   -v $(pwd)/data:/data \
   --name floaty \
   floaty
@@ -57,77 +62,17 @@ docker run -d -p 8080:8080 \
 
 - `data/` - Directory where event logs are stored
 
-### Docker Compose
-
-Create `docker-compose.yml`:
-
-```yaml
-version: "3"
-services:
-  floaty:
-    build: .
-    ports:
-      - "8080:8080"
-    volumes:
-      - ./config.json:/root/config.json
-      - ./data:/data
-    restart: unless-stopped
-```
-
-Run with `docker-compose up -d`
-
 ## Configuration
-
-### Tracker Configuration
-
-The `config.json` file defines your trackers:
-
-```json
-[
-  {
-    "title": "Display Name",
-    "slug": "url-slug"
-  }
-]
-```
-
-- `title` - Display name shown in the UI
-- `slug` - URL-safe identifier (lowercase, no spaces)
 
 ### Environment Variables
 
-- `FLOATY_CONFIG` - Path to config file (default: `config.json`)
 - `PORT` - HTTP port (default: `8080`)
-
-### Application Constants
-
-Edit in `main.go`:
-
-- `recurringValue` - Amount added monthly (default: 100.0)
-- `recurringDayOfMonth` - Day of month for recurring addition (default: 1)
 
 ## How It Works
 
 ### Event Sourcing
 
-All changes are stored as events in `data/{slug}.log` as JSON lines:
-
-```json
-{"id":"abc123","timestamp":"2025-10-29T10:00:00Z","type":"manual","value":50.0,"note":"Initial deposit"}
-{"id":"def456","timestamp":"2025-11-01T00:00:00Z","type":"recurring","value":100.0,"note":"Monthly recurring addition"}
-```
-
-### Automatic Recurring Events
-
-When data is requested:
-
-1. Load all events from log file
-2. Check time gap between last event and current time
-3. Generate synthetic recurring events for each month boundary crossed
-4. Persist synthetic events to log
-5. Calculate total from all events
-
-If the server is offline for 3 months, it will automatically generate and persist 3 monthly recurring events when it comes back online.
+All changes are stored as events in `data/{slug}.log` as JSON lines.
 
 ### Soft Deletes
 
@@ -158,39 +103,6 @@ Event logs are stored in the `data/` directory:
 
 **Always mount the data directory** to persist data across container restarts.
 
-## Development
+## Forking
 
-### Project Structure
-
-```
-floaty/
-├── main.go                 # Go backend
-├── config.json            # Tracker configuration
-├── config.json.example    # Example configuration
-├── static/
-│   ├── index.html         # Homepage template
-│   ├── tracker.html       # Tracker page template
-│   ├── style.css          # Shared styles
-│   └── 404.html           # 404 page
-├── data/                  # Event logs (created at runtime)
-├── Dockerfile
-└── README.md
-```
-
-### Adding a New Tracker
-
-1. Edit `config.json`
-2. Add new tracker object with `title` and `slug`
-3. Restart the server
-4. New tracker available at `/{slug}`
-
-### Recurring Event Logic
-
-Recurring events are generated on-demand when data is read. The system:
-
-1. Finds the last event timestamp
-2. Calculates how many months have passed
-3. Generates events for the 1st of each missed month
-4. Writes them to the log file
-
-All timestamps are stored in UTC to avoid timezone issues.
+If you choose to fork this repository, ensure you set the secrets for the Github actions to work.
