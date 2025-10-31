@@ -20,6 +20,7 @@
                 <div class="event-item">
                     <div class="event-details">
                         <a href="/{{.Slug}}">{{.Title}}</a>
+                        <div class="event-time">{{printf "%.2f" .Total}}</div>
                     </div>
                     <button class="btn-delete" onclick="deleteTracker('{{.Slug}}')">delete</button>
                 </div>
