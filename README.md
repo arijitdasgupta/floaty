@@ -22,10 +22,11 @@ That being said, if you do want to use it, feel free. It's decent looking, it's 
 
 - **Multiple trackers** - Configure multiple independent number trackers
 - **Add/Subtract values** with optional notes
+- **Edit transactions** - Modify existing entries inline with full history preservation
 - **Delete transactions** - Remove manual transactions with soft deletes
 - **Event-sourced storage** - All changes logged to append-only files
-- **Mobile-friendly** - Rresponsive design that works on all devices
-- **Cookie-based authentication** - Simple password protection for the entire app
+- **Mobile-friendly** - Responsive design that works on all devices
+- **Cookie-based authentication** - Simple username/password protection with configurable session duration
 - **Dockerized** - Fully self-contained deployment
 
 ## Quick Start
@@ -49,11 +50,16 @@ FLOATY_USERNAME=myuser FLOATY_PASSWORD=mysecretpassword go run main.go
 
 # Run with custom cookie expiration (e.g., 1 hour = 3600 seconds)
 FLOATY_COOKIE_MAX_AGE=3600 go run main.go
+
+# Run without authentication (public access - use with caution!)
+FLOATY_NO_AUTH=true go run main.go
 ```
 
 Access the app at http://localhost:8080
 
 **Default login:** Username: `admin`, Password: `floaty` (change via `FLOATY_USERNAME` and `FLOATY_PASSWORD` environment variables)
+
+**No-auth mode:** Set `FLOATY_NO_AUTH=true` to disable authentication entirely. This makes the application publicly accessible without any login.
 
 ### Build and Run with Docker
 
@@ -61,12 +67,19 @@ Access the app at http://localhost:8080
 # Build the image
 docker build -t floaty .
 
-# Run with config and data mounted
+# Run with authentication
 docker run -d -p 8080:8080 \
   -v $(pwd)/data:/data \
   -e FLOATY_USERNAME=myuser \
   -e FLOATY_PASSWORD=mysecretpassword \
   -e FLOATY_COOKIE_MAX_AGE=259200 \
+  --name floaty \
+  floaty
+
+# Run without authentication (public access)
+docker run -d -p 8080:8080 \
+  -v $(pwd)/data:/data \
+  -e FLOATY_NO_AUTH=true \
   --name floaty \
   floaty
 ```
@@ -83,16 +96,26 @@ docker run -d -p 8080:8080 \
 - `FLOATY_USERNAME` - Username for login (default: `admin` - **change this in production!**)
 - `FLOATY_PASSWORD` - Password for login (default: `floaty` - **change this in production!**)
 - `FLOATY_COOKIE_MAX_AGE` - Cookie expiration time in seconds (default: `259200` = 3 days)
+- `FLOATY_NO_AUTH` - Disable authentication when set to `true` (default: `false` - **use with caution!**)
 
 ## How It Works
 
 ### Event Sourcing
 
-All changes are stored as events in `data/{slug}.log` as JSON lines.
+All changes are stored as events in `data/{slug}.log` as JSON lines. This includes:
+- Manual additions and subtractions
+- Deletions (soft deletes with markers)
+- Edits (new events referencing original event IDs)
+
+Each event has a unique ID and timestamp, creating an immutable audit trail.
 
 ### Soft Deletes
 
 Deleting a transaction appends a deletion marker to the log. The event remains in the file but is filtered out when reading.
+
+### Event Editing
+
+Editing a transaction creates a new event with an `edited_id` field pointing to the original event. The system follows edit chains to display only the latest version while preserving the original timestamp and maintaining the full history in the log.
 
 ## API Endpoints
 
@@ -101,19 +124,25 @@ Deleting a transaction appends a deletion marker to the log. The event remains i
 - `GET /login` - Login page
 - `POST /login` - Login with credentials `{"username": "admin", "password": "your-password"}`
 
-All endpoints below require authentication via cookie.
+All endpoints below require authentication via cookie (unless `FLOATY_NO_AUTH=true` is set).
 
 ### Homepage
 
 - `GET /` - List of all trackers
 
+### Tracker Management
+
+- `POST /api/trackers/create` - Create new tracker `{"title": "My Tracker", "slug": "my-tracker"}`
+- `POST /api/trackers/delete` - Delete tracker `{"slug": "my-tracker"}`
+
 ### Per-Tracker Endpoints
 
 - `GET /{slug}` - Tracker UI
 - `GET /api/{slug}/total` - Get current total
-- `GET /api/{slug}/events` - Get all events
+- `GET /api/{slug}/events` - Get all events (filtered to show latest versions after edits)
 - `POST /api/{slug}/add` - Add value `{"value": 50.0, "note": "optional"}`
 - `POST /api/{slug}/subtract` - Subtract value `{"value": 25.0, "note": "optional"}`
+- `POST /api/{slug}/edit` - Edit transaction `{"id": "event-id", "value": 75.0, "note": "updated note"}`
 - `POST /api/{slug}/delete` - Delete transaction `{"id": "event-id"}`
 
 ## Data Persistence

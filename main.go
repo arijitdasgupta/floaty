@@ -37,12 +37,14 @@ type Event struct {
 	Value     float64   `json:"value"`
 	Note      string    `json:"note,omitempty"`
 	Deleted   bool      `json:"deleted,omitempty"`
+	EditedID  string    `json:"edited_id,omitempty"` // ID of event being edited
 }
 
 type Tracker struct {
 	Title   string    `json:"title"`
 	Slug    string    `json:"slug"`
 	Created time.Time `json:"created,omitempty"`
+	Total   float64   `json:"total,omitempty"`
 }
 
 var (
@@ -51,23 +53,34 @@ var (
 	appPassword     string
 	appUsername     string
 	cookieMaxAge    int
+	noAuth          bool
 )
 
 func main() {
 	// Initialize session storage
 	activeSessions = make(map[string]bool)
 
+	// Check if running in no-auth mode
+	noAuth = os.Getenv("FLOATY_NO_AUTH") == "true"
+	if noAuth {
+		log.Println("Warning: Running in NO AUTH mode. Application is publicly accessible!")
+	}
+
 	// Load credentials from environment or use defaults
 	appUsername = os.Getenv("FLOATY_USERNAME")
 	if appUsername == "" {
 		appUsername = "admin"
-		log.Println("Warning: Using default username 'admin'. Set FLOATY_USERNAME environment variable for production.")
+		if !noAuth {
+			log.Println("Warning: Using default username 'admin'. Set FLOATY_USERNAME environment variable for production.")
+		}
 	}
 
 	appPassword = os.Getenv("FLOATY_PASSWORD")
 	if appPassword == "" {
 		appPassword = "floaty"
-		log.Println("Warning: Using default password 'floaty'. Set FLOATY_PASSWORD environment variable for production.")
+		if !noAuth {
+			log.Println("Warning: Using default password 'floaty'. Set FLOATY_PASSWORD environment variable for production.")
+		}
 	}
 	
 	// Load cookie max age from environment or use default (3 days)
@@ -90,28 +103,17 @@ func main() {
 	// Static files (no auth required)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-	// Login routes (no auth required)
-	r.Get("/login", serveLogin)
-	r.Post("/login", handleLogin)
-
-	// Protected routes
-	r.Group(func(r chi.Router) {
-		r.Use(requireAuth)
-
-		// Homepage
+	if noAuth {
+		// No authentication - all routes are public
 		r.Get("/", serveIndex)
-
-		// Tracker management
 		r.Post("/api/trackers/create", createTracker)
 		r.Post("/api/trackers/delete", deleteTracker)
-
-		// Tracker routes
+		
 		r.Route("/{slug}", func(r chi.Router) {
 			r.Use(validateSlug)
 			r.Get("/", serveTracker)
 		})
-
-		// API routes
+		
 		r.Route("/api/{slug}", func(r chi.Router) {
 			r.Use(validateSlug)
 			r.Get("/total", getTotal)
@@ -119,8 +121,42 @@ func main() {
 			r.Post("/add", addValue)
 			r.Post("/subtract", subtractValue)
 			r.Post("/delete", deleteEvent)
+			r.Post("/edit", editEvent)
 		})
-	})
+	} else {
+		// Authentication enabled
+		r.Get("/login", serveLogin)
+		r.Post("/login", handleLogin)
+
+		// Protected routes
+		r.Group(func(r chi.Router) {
+			r.Use(requireAuth)
+
+			// Homepage
+			r.Get("/", serveIndex)
+
+			// Tracker management
+			r.Post("/api/trackers/create", createTracker)
+			r.Post("/api/trackers/delete", deleteTracker)
+
+			// Tracker routes
+			r.Route("/{slug}", func(r chi.Router) {
+				r.Use(validateSlug)
+				r.Get("/", serveTracker)
+			})
+
+			// API routes
+			r.Route("/api/{slug}", func(r chi.Router) {
+				r.Use(validateSlug)
+				r.Get("/total", getTotal)
+				r.Get("/events", getEvents)
+				r.Post("/add", addValue)
+				r.Post("/subtract", subtractValue)
+				r.Post("/delete", deleteEvent)
+				r.Post("/edit", editEvent)
+			})
+		})
+	}
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -159,15 +195,25 @@ func loadTrackers() ([]Tracker, error) {
 			var event Event
 			if err := json.Unmarshal(scanner.Bytes(), &event); err == nil {
 				if event.Type == EventMetadata {
-					trackers = append(trackers, Tracker{
+					tracker := Tracker{
 						Title:   event.Note,
 						Slug:    slug,
 						Created: event.Timestamp,
-					})
+					}
+					
+					// Calculate total for this tracker
+					file.Close()
+					events, err := loadEvents(slug)
+					if err == nil {
+						tracker.Total = calculateTotal(events)
+					}
+					
+					trackers = append(trackers, tracker)
 				}
 			}
+		} else {
+			file.Close()
 		}
-		file.Close()
 	}
 
 	// Sort by creation time
@@ -607,6 +653,48 @@ func deleteEvent(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
+func editEvent(w http.ResponseWriter, r *http.Request) {
+	slug := chi.URLParam(r, "slug")
+	
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req struct {
+		ID    string  `json:"id"`
+		Value float64 `json:"value"`
+		Note  string  `json:"note"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	// Create an edit event that references the original event
+	event := Event{
+		ID:        generateID(),
+		Timestamp: time.Now().UTC(),
+		Type:      EventManual,
+		Value:     req.Value,
+		Note:      req.Note,
+		EditedID:  req.ID, // Reference to the original event being edited
+	}
+
+	if err := appendEvent(slug, event); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(event)
+}
+
+
 func loadEvents(slug string) ([]Event, error) {
 	logFile := getLogFile(slug)
 	file, err := os.Open(logFile)
@@ -636,18 +724,94 @@ func loadEvents(slug string) ([]Event, error) {
 		return nil, err
 	}
 
-	// Apply deletions
+	// Apply deletions and edits
 	deletedIDs := make(map[string]bool)
+	editMap := make(map[string]string) // Map old ID to new ID
+	originalTimestamps := make(map[string]time.Time) // Map to preserve original timestamps
+	
+	// First pass: collect all events and their timestamps
+	eventMap := make(map[string]Event)
 	for _, event := range allEvents {
+		eventMap[event.ID] = event
 		if event.Deleted {
 			deletedIDs[event.ID] = true
 		}
+		if event.EditedID != "" {
+			// This event is an edit of another event
+			editMap[event.EditedID] = event.ID
+		}
+	}
+	
+	// Find original timestamps by following chains backwards
+	for _, event := range allEvents {
+		if event.EditedID == "" && !event.Deleted {
+			// This is an original event, record its timestamp
+			originalTimestamps[event.ID] = event.Timestamp
+		}
+	}
+	
+	// For edited events, find and preserve the original timestamp
+	for originalID, firstEditID := range editMap {
+		var originalTimestamp time.Time
+		
+		// Get the original event's timestamp
+		if origEvent, exists := eventMap[originalID]; exists {
+			originalTimestamp = origEvent.Timestamp
+		}
+		
+		// Follow the chain and set the original timestamp for all in the chain
+		currentID := firstEditID
+		for {
+			originalTimestamps[currentID] = originalTimestamp
+			if nextID, hasNext := editMap[currentID]; hasNext {
+				currentID = nextID
+			} else {
+				break
+			}
+		}
+	}
+	
+	// Build final event map by following edit chains to get the latest version
+	finalEvents := make(map[string]Event)
+	for _, event := range allEvents {
+		if event.Deleted || event.EditedID != "" {
+			// Skip deletion markers and edit events (we'll add final versions below)
+			continue
+		}
+		finalEvents[event.ID] = event
+	}
+	
+	// For each original event that was edited, find the latest version in the chain
+	for originalID, firstEditID := range editMap {
+		// Follow the chain to find the final version
+		currentID := firstEditID
+		for {
+			if nextID, hasNext := editMap[currentID]; hasNext {
+				currentID = nextID
+			} else {
+				break
+			}
+		}
+		
+		// Find the final event and preserve original timestamp
+		for _, event := range allEvents {
+			if event.ID == currentID {
+				// Preserve the original timestamp
+				if origTimestamp, exists := originalTimestamps[currentID]; exists {
+					event.Timestamp = origTimestamp
+				}
+				// Remove the original event and add the final edited version
+				delete(finalEvents, originalID)
+				finalEvents[currentID] = event
+				break
+			}
+		}
 	}
 
-	// Filter out deleted events and deletion markers
+	// Convert map to slice and filter out deleted events
 	var events []Event
-	for _, event := range allEvents {
-		if !event.Deleted && !deletedIDs[event.ID] {
+	for id, event := range finalEvents {
+		if !deletedIDs[id] {
 			events = append(events, event)
 		}
 	}
