@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -45,10 +46,11 @@ type Tracker struct {
 }
 
 var (
-	mu             sync.RWMutex
-	activeSessions map[string]bool
-	appPassword    string
-	appUsername    string
+	mu              sync.RWMutex
+	activeSessions  map[string]bool
+	appPassword     string
+	appUsername     string
+	cookieMaxAge    int
 )
 
 func main() {
@@ -66,6 +68,17 @@ func main() {
 	if appPassword == "" {
 		appPassword = "floaty"
 		log.Println("Warning: Using default password 'floaty'. Set FLOATY_PASSWORD environment variable for production.")
+	}
+	
+	// Load cookie max age from environment or use default (3 days)
+	cookieMaxAge = 86400 * 3 // 3 days in seconds
+	if maxAgeStr := os.Getenv("FLOATY_COOKIE_MAX_AGE"); maxAgeStr != "" {
+		if maxAge, err := strconv.Atoi(maxAgeStr); err == nil && maxAge > 0 {
+			cookieMaxAge = maxAge
+			log.Printf("Using cookie max age: %d seconds", cookieMaxAge)
+		} else {
+			log.Printf("Warning: Invalid FLOATY_COOKIE_MAX_AGE value '%s', using default 3 days", maxAgeStr)
+		}
 	}
 
 	r := chi.NewRouter()
@@ -241,7 +254,7 @@ func handleLogin(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
-		MaxAge:   86400 * 3, // 3 days
+		MaxAge:   cookieMaxAge,
 	})
 
 	w.WriteHeader(http.StatusOK)

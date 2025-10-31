@@ -46,6 +46,9 @@ go run main.go
 
 # Run with custom credentials
 FLOATY_USERNAME=myuser FLOATY_PASSWORD=mysecretpassword go run main.go
+
+# Run with custom cookie expiration (e.g., 1 hour = 3600 seconds)
+FLOATY_COOKIE_MAX_AGE=3600 go run main.go
 ```
 
 Access the app at http://localhost:8080
@@ -63,6 +66,7 @@ docker run -d -p 8080:8080 \
   -v $(pwd)/data:/data \
   -e FLOATY_USERNAME=myuser \
   -e FLOATY_PASSWORD=mysecretpassword \
+  -e FLOATY_COOKIE_MAX_AGE=259200 \
   --name floaty \
   floaty
 ```
@@ -78,6 +82,7 @@ docker run -d -p 8080:8080 \
 - `PORT` - HTTP port (default: `8080`)
 - `FLOATY_USERNAME` - Username for login (default: `admin` - **change this in production!**)
 - `FLOATY_PASSWORD` - Password for login (default: `floaty` - **change this in production!**)
+- `FLOATY_COOKIE_MAX_AGE` - Cookie expiration time in seconds (default: `259200` = 3 days)
 
 ## How It Works
 
