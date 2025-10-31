@@ -67,21 +67,114 @@
                     const valueClass = isPositive ? 'positive' : 'negative';
                     const noteText = event.note || (event.type === 'recurring' ? 'Monthly recurring' : '—');
                     const deleteBtn = event.type === 'manual' ? '<button class="btn-delete" onclick="deleteEvent(\'' + event.id + '\')">delete</button>' : '';
+                    const editBtn = event.type === 'manual' ? '<button class="btn-delete" onclick="toggleEdit(\'' + event.id + '\')">edit</button>' : '';
                     
-                    return '<div class="event-item ' + eventClass + '">' +
+                    return '<div class="event-item ' + eventClass + '" id="event-' + event.id + '" data-id="' + event.id + '" data-value="' + event.value + '" data-note="' + (event.note || '') + '">' +
                         '<div class="event-details">' +
                         '<div class="event-time">' + date.toLocaleString() + '</div>' +
-                        '<div class="event-note">' + noteText + '</div>' +
+                        '<div class="event-note" id="note-' + event.id + '">' + noteText + '</div>' +
+                        '<div class="event-note" id="note-input-' + event.id + '" style="display:none;">' +
+                        '<input type="text" id="note-edit-input-' + event.id + '" value="' + (event.note || '').replace(/"/g, '&quot;') + '" style="width:100%; border:none; border-bottom:1px solid #ccc; padding:4px 0; font-family:Georgia; font-size:1em; background:transparent;" onkeypress="if(event.key===\'Enter\')saveEdit(\'' + event.id + '\')">' +
                         '</div>' +
-                        '<div class="event-value ' + valueClass + '">' +
+                        '</div>' +
+                        '<div class="event-value ' + valueClass + '" id="value-' + event.id + '">' +
                         sign + event.value.toFixed(2) +
                         '</div>' +
+                        '<div class="event-value" id="value-input-' + event.id + '" style="display:none;">' +
+                        '<input type="number" id="value-edit-input-' + event.id + '" value="' + Math.abs(event.value) + '" step="0.01" style="width:80px; border:none; border-bottom:1px solid #ccc; padding:4px 0; font-family:Georgia; font-size:1.1em; background:transparent; text-align:right;" onkeypress="if(event.key===\'Enter\')saveEdit(\'' + event.id + '\')">' +
+                        '</div>' +
+                        '<button class="btn-delete" id="save-' + event.id + '" style="display:none;" onclick="saveEdit(\'' + event.id + '\')">save</button>' +
+                        '<button class="btn-delete" id="cancel-' + event.id + '" style="display:none;" onclick="cancelEdit(\'' + event.id + '\')">cancel</button>' +
+                        editBtn +
                         deleteBtn +
                         '</div>';
                 }).join('');
             } catch (error) {
                 console.error('Error loading data:', error);
                 document.getElementById('events').innerHTML = '<div class="loading">Error loading events</div>';
+            }
+        }
+
+        function toggleEdit(id) {
+            // Hide normal view
+            document.getElementById('note-' + id).style.display = 'none';
+            document.getElementById('value-' + id).style.display = 'none';
+            
+            // Show input view
+            document.getElementById('note-input-' + id).style.display = 'block';
+            document.getElementById('value-input-' + id).style.display = 'block';
+            
+            // Show save/cancel buttons, hide edit/delete buttons
+            document.getElementById('save-' + id).style.display = 'inline';
+            document.getElementById('cancel-' + id).style.display = 'inline';
+            
+            // Find and hide edit/delete buttons
+            const eventItem = document.getElementById('event-' + id);
+            const buttons = eventItem.querySelectorAll('.btn-delete');
+            buttons.forEach(btn => {
+                if (btn.id !== 'save-' + id && btn.id !== 'cancel-' + id) {
+                    btn.style.display = 'none';
+                }
+            });
+        }
+
+        function cancelEdit(id) {
+            // Show normal view
+            document.getElementById('note-' + id).style.display = 'block';
+            document.getElementById('value-' + id).style.display = 'block';
+            
+            // Hide input view
+            document.getElementById('note-input-' + id).style.display = 'none';
+            document.getElementById('value-input-' + id).style.display = 'none';
+            
+            // Hide save/cancel buttons, show edit/delete buttons
+            document.getElementById('save-' + id).style.display = 'none';
+            document.getElementById('cancel-' + id).style.display = 'none';
+            
+            const eventItem = document.getElementById('event-' + id);
+            const buttons = eventItem.querySelectorAll('.btn-delete');
+            buttons.forEach(btn => {
+                if (btn.id !== 'save-' + id && btn.id !== 'cancel-' + id) {
+                    btn.style.display = 'inline';
+                }
+            });
+            
+            // Reset input values
+            const originalValue = parseFloat(eventItem.dataset.value);
+            const originalNote = eventItem.dataset.note;
+            document.getElementById('value-edit-input-' + id).value = Math.abs(originalValue);
+            document.getElementById('note-edit-input-' + id).value = originalNote;
+        }
+
+        async function saveEdit(id) {
+            const eventItem = document.getElementById('event-' + id);
+            const originalValue = parseFloat(eventItem.dataset.value);
+            const isNegative = originalValue < 0;
+            
+            let newValue = parseFloat(document.getElementById('value-edit-input-' + id).value);
+            const newNote = document.getElementById('note-edit-input-' + id).value;
+            
+            if (isNaN(newValue) || newValue <= 0) {
+                alert('Please enter a valid positive number');
+                return;
+            }
+            
+            // Apply sign based on original value
+            if (isNegative) {
+                newValue = -newValue;
+            }
+            
+            try {
+                await fetch('/api/' + slug + '/edit', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id, value: newValue, note: newNote })
+                });
+                
+                loadData();
+            } catch (error) {
+                console.error('Error editing event:', error);
+                alert('Failed to edit event');
             }
         }
 
