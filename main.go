@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"html/template"
@@ -44,40 +45,68 @@ type Tracker struct {
 }
 
 var (
-	mu sync.RWMutex
+	mu              sync.RWMutex
+	activeSessions  map[string]bool
+	appPassword     string
+	appUsername     string
 )
 
 func main() {
+	// Initialize session storage
+	activeSessions = make(map[string]bool)
+	
+	// Load credentials from environment or use defaults
+	appUsername = os.Getenv("FLOATY_USERNAME")
+	if appUsername == "" {
+		appUsername = "admin"
+		log.Println("Warning: Using default username 'admin'. Set FLOATY_USERNAME environment variable for production.")
+	}
+	
+	appPassword = os.Getenv("FLOATY_PASSWORD")
+	if appPassword == "" {
+		appPassword = "floaty"
+		log.Println("Warning: Using default password 'floaty'. Set FLOATY_PASSWORD environment variable for production.")
+	}
+	
 	r := chi.NewRouter()
 	
 	// Middleware
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	
-	// Static files
+	// Static files (no auth required)
 	r.Handle("/static/*", http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 	
-	// Homepage
-	r.Get("/", serveIndex)
+	// Login routes (no auth required)
+	r.Get("/login", serveLogin)
+	r.Post("/login", handleLogin)
 	
-	// Tracker management
-	r.Post("/api/trackers/create", createTracker)
-	r.Post("/api/trackers/delete", deleteTracker)
-	
-	// Tracker routes
-	r.Route("/{slug}", func(r chi.Router) {
-		r.Use(validateSlug)
-		r.Get("/", serveTracker)
-	})
-	
-	// API routes
-	r.Route("/api/{slug}", func(r chi.Router) {
-		r.Use(validateSlug)
-		r.Get("/total", getTotal)
-		r.Get("/events", getEvents)
-		r.Post("/add", addValue)
-		r.Post("/subtract", subtractValue)
-		r.Post("/delete", deleteEvent)
+	// Protected routes
+	r.Group(func(r chi.Router) {
+		r.Use(requireAuth)
+		
+		// Homepage
+		r.Get("/", serveIndex)
+		
+		// Tracker management
+		r.Post("/api/trackers/create", createTracker)
+		r.Post("/api/trackers/delete", deleteTracker)
+		
+		// Tracker routes
+		r.Route("/{slug}", func(r chi.Router) {
+			r.Use(validateSlug)
+			r.Get("/", serveTracker)
+		})
+		
+		// API routes
+		r.Route("/api/{slug}", func(r chi.Router) {
+			r.Use(validateSlug)
+			r.Get("/total", getTotal)
+			r.Get("/events", getEvents)
+			r.Post("/add", addValue)
+			r.Post("/subtract", subtractValue)
+			r.Post("/delete", deleteEvent)
+		})
 	})
 
 	port := os.Getenv("PORT")
@@ -135,6 +164,97 @@ func loadTrackers() ([]Tracker, error) {
 	
 	return trackers, nil
 }
+
+func requireAuth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		cookie, err := r.Cookie("floaty_session")
+		if err != nil {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		
+		mu.RLock()
+		valid := activeSessions[cookie.Value]
+		mu.RUnlock()
+		
+		if !valid {
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+		
+		next.ServeHTTP(w, r)
+	})
+}
+
+func serveLogin(w http.ResponseWriter, r *http.Request) {
+	// If already logged in, redirect to home
+	cookie, err := r.Cookie("floaty_session")
+	if err == nil {
+		mu.RLock()
+		valid := activeSessions[cookie.Value]
+		mu.RUnlock()
+		
+		if valid {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		}
+	}
+	
+	tmpl, err := template.ParseFiles("templates/login.html")
+	if err != nil {
+		http.Error(w, "Could not load template", http.StatusInternalServerError)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "text/html")
+	tmpl.Execute(w, nil)
+}
+
+func handleLogin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+	
+	if req.Username != appUsername || req.Password != appPassword {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+	
+	// Generate new session token for this login
+	sessionToken := generateSessionToken()
+	
+	// Store session token
+	mu.Lock()
+	activeSessions[sessionToken] = true
+	mu.Unlock()
+	
+	// Set cookie with session token
+	http.SetCookie(w, &http.Cookie{
+		Name:     "floaty_session",
+		Value:    sessionToken,
+		Path:     "/",
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400 * 30, // 30 days
+	})
+	
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func generateSessionToken() string {
+	b := make([]byte, 32)
+	rand.Read(b)
+	hash := sha256.Sum256(b)
+	return hex.EncodeToString(hash[:])
+}
+
 
 func validateSlug(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

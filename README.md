@@ -25,6 +25,7 @@ That being said, if you do want to use it, feel free. It's decent looking, it's 
 - **Delete transactions** - Remove manual transactions with soft deletes
 - **Event-sourced storage** - All changes logged to append-only files
 - **Mobile-friendly** - Rresponsive design that works on all devices
+- **Cookie-based authentication** - Simple password protection for the entire app
 - **Dockerized** - Fully self-contained deployment
 
 ## Quick Start
@@ -40,11 +41,16 @@ Each tracker gets:
 ### Run Locally (Development)
 
 ```bash
-# Run the server
+# Run the server (uses default username "admin" and password "floaty")
 go run main.go
+
+# Run with custom credentials
+FLOATY_USERNAME=myuser FLOATY_PASSWORD=mysecretpassword go run main.go
 ```
 
 Access the app at http://localhost:8080
+
+**Default login:** Username: `admin`, Password: `floaty` (change via `FLOATY_USERNAME` and `FLOATY_PASSWORD` environment variables)
 
 ### Build and Run with Docker
 
@@ -55,6 +61,8 @@ docker build -t floaty .
 # Run with config and data mounted
 docker run -d -p 8080:8080 \
   -v $(pwd)/data:/data \
+  -e FLOATY_USERNAME=myuser \
+  -e FLOATY_PASSWORD=mysecretpassword \
   --name floaty \
   floaty
 ```
@@ -68,6 +76,8 @@ docker run -d -p 8080:8080 \
 ### Environment Variables
 
 - `PORT` - HTTP port (default: `8080`)
+- `FLOATY_USERNAME` - Username for login (default: `admin` - **change this in production!**)
+- `FLOATY_PASSWORD` - Password for login (default: `floaty` - **change this in production!**)
 
 ## How It Works
 
@@ -80,6 +90,13 @@ All changes are stored as events in `data/{slug}.log` as JSON lines.
 Deleting a transaction appends a deletion marker to the log. The event remains in the file but is filtered out when reading.
 
 ## API Endpoints
+
+### Authentication
+
+- `GET /login` - Login page
+- `POST /login` - Login with credentials `{"username": "admin", "password": "your-password"}`
+
+All endpoints below require authentication via cookie.
 
 ### Homepage
 
