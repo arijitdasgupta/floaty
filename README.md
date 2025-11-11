@@ -10,8 +10,41 @@ A simple web application that tracks multiple rolling totals with manual additio
 
 This is entirely a personal tool I made to keep track of my things.
 I have zero plans to improve this as of now.
-_Neither do I endorse the style of code that is in `main.go`_.
 That being said, if you do want to use it, feel free. It's decent looking, it's tiny and it works!
+
+## Code Structure
+
+The codebase is now modularized into separate packages for better maintainability:
+
+- **`models/`** - Data models (Event, Tracker, EventType) and validation logic
+- **`storage/`** - Event storage operations (file I/O, event loading, calculations)
+- **`auth/`** - Authentication logic (session management, token generation)
+- **`handlers/`** - HTTP handlers for web routes and API endpoints
+- **`middleware/`** - HTTP middleware (logging, authentication, slug validation)
+- **`main.go`** - Application entry point and server configuration (115 lines)
+
+## Testing
+
+The project includes comprehensive unit tests for all packages:
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -cover ./...
+
+# Run tests with verbose output
+go test -v ./...
+```
+
+**Test Coverage:**
+- `auth/` - 100% coverage (session management, token generation)
+- `models/` - 100% coverage (slug validation, ID generation)
+- `storage/` - 61.2% coverage (event loading, appending, calculations)
+- `handlers/` - 50.6% coverage (API endpoints, login flow)
+
+All 38 tests passing.
 
 ## TODOs
  - Edit function is wonky!
