@@ -457,6 +457,39 @@ func TestEditEvent(t *testing.T) {
 	}
 }
 
+func TestDeleteTrackerInvalidSlug(t *testing.T) {
+	_, cleanup := setupTestEnvironment(t)
+	defer cleanup()
+
+	tests := []struct {
+		name           string
+		slug           string
+		expectedStatus int
+	}{
+		{"invalid uppercase", "MyTracker", http.StatusBadRequest},
+		{"invalid special chars", "../../../etc/passwd", http.StatusBadRequest},
+		{"invalid path traversal", "../../test", http.StatusBadRequest},
+		{"empty slug", "", http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reqBody, _ := json.Marshal(map[string]string{
+				"slug": tt.slug,
+			})
+
+			req := httptest.NewRequest(http.MethodPost, "/api/trackers/delete", bytes.NewBuffer(reqBody))
+			w := httptest.NewRecorder()
+
+			DeleteTracker(w, req)
+
+			if w.Code != tt.expectedStatus {
+				t.Errorf("DeleteTracker() with invalid slug status = %d, want %d", w.Code, tt.expectedStatus)
+			}
+		})
+	}
+}
+
 func TestInitHandlers(t *testing.T) {
 	// Test configuration initialization
 	InitHandlers(Config{

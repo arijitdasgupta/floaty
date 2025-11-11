@@ -214,6 +214,12 @@ func DeleteTracker(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate slug to prevent path injection
+	if !models.IsValidSlug(req.Slug) {
+		http.Error(w, "Invalid slug format", http.StatusBadRequest)
+		return
+	}
+
 	mu.Lock()
 	defer mu.Unlock()
 
