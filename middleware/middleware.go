@@ -1,9 +1,9 @@
 package middleware
 
 import (
-	"floaty/auth"
-	"floaty/models"
-	"floaty/storage"
+	"github.com/arijitdasgupta/floaty/auth"
+	"github.com/arijitdasgupta/floaty/models"
+	"github.com/arijitdasgupta/floaty/storage"
 	"io"
 	"log"
 	"net/http"

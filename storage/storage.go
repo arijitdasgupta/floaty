@@ -3,7 +3,7 @@ package storage
 import (
 	"bufio"
 	"encoding/json"
-	"floaty/models"
+	"github.com/arijitdasgupta/floaty/models"
 	"log"
 	"os"
 	"path/filepath"
