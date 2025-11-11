@@ -2,9 +2,9 @@ package handlers
 
 import (
 	"encoding/json"
-	"floaty/auth"
-	"floaty/models"
-	"floaty/storage"
+	"github.com/arijitdasgupta/floaty/auth"
+	"github.com/arijitdasgupta/floaty/models"
+	"github.com/arijitdasgupta/floaty/storage"
 	"html/template"
 	"net/http"
 	"os"

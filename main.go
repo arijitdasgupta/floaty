@@ -1,9 +1,9 @@
 package main
 
 import (
-	"floaty/auth"
-	"floaty/handlers"
-	"floaty/middleware"
+	"github.com/arijitdasgupta/floaty/auth"
+	"github.com/arijitdasgupta/floaty/handlers"
+	"github.com/arijitdasgupta/floaty/middleware"
 	"log"
 	"net/http"
 	"os"

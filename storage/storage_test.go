@@ -1,7 +1,7 @@
 package storage
 
 import (
-	"floaty/models"
+	"github.com/arijitdasgupta/floaty/models"
 	"os"
 	"path/filepath"
 	"testing"
