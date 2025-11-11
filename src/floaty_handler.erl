@@ -646,29 +646,41 @@ generate_id() ->
 %% ===================================================================
 
 render_index(Template, Trackers) ->
-    % Simple template rendering - replace {{trackers}} with tracker list
-    TrackersHtml = lists:map(fun(Tracker) ->
-        Title = maps:get(<<"title">>, Tracker),
-        Slug = maps:get(<<"slug">>, Tracker),
-        Total = maps:get(<<"total">>, Tracker, 0),
-        io_lib:format(
-            "<div class=\"tracker-card\">"
-            "<a href=\"/~s\">"
-            "<h2>~s</h2>"
-            "<p class=\"total\">~.2f</p>"
-            "</a>"
-            "</div>",
-            [Slug, Title, Total]
-        )
-    end, Trackers),
+    % Simple template rendering - replace Go template syntax with rendered content
+    TrackersHtml = case Trackers of
+        [] ->
+            <<"<div class=\"loading\">No trackers yet. Create your first one below!</div>">>;
+        _ ->
+            lists:map(fun(Tracker) ->
+                Title = maps:get(<<"title">>, Tracker),
+                Slug = maps:get(<<"slug">>, Tracker),
+                Total = maps:get(<<"total">>, Tracker, 0),
+                TotalStr = io_lib:format("~.2f", [Total]),
+                iolist_to_binary([
+                    <<"<div class=\"event-item\">">>,
+                    <<"<div class=\"event-details\">">>,
+                    <<"<a href=\"/">>, Slug, <<"\">">>, Title, <<"</a>">>,
+                    <<"<div class=\"event-time\">">>, TotalStr, <<"</div>">>,
+                    <<"</div>">>,
+                    <<"<button class=\"btn-delete\" onclick=\"deleteTracker('">>, 
+                    Slug, <<"')\">delete</button>">>,
+                    <<"</div>">>
+                ])
+            end, Trackers)
+    end,
     
-    % Replace placeholder in template
-    binary:replace(Template, <<"{{TRACKERS}}">>, iolist_to_binary(TrackersHtml)).
+    % Replace Go template range syntax
+    Template1 = re:replace(Template, 
+        <<"\\{\\{range \\.Trackers\\}\\}.*?\\{\\{else\\}\\}.*?\\{\\{end\\}\\}">>,
+        TrackersHtml,
+        [global, dotall, {return, binary}]),
+    
+    Template1.
 
 render_tracker(Template, Tracker) ->
     Title = maps:get(<<"title">>, Tracker),
     Slug = maps:get(<<"slug">>, Tracker),
     
-    % Replace placeholders
-    Template1 = binary:replace(Template, <<"{{TITLE}}">>, Title, [global]),
-    binary:replace(Template1, <<"{{SLUG}}">>, Slug, [global]).
+    % Replace {{.Title}} and {{.Slug}} placeholders
+    Template1 = binary:replace(Template, <<"{{.Title}}">>, Title, [global]),
+    binary:replace(Template1, <<"{{.Slug}}">>, Slug, [global]).

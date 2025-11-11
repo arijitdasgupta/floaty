@@ -13,9 +13,19 @@ start(_StartType, _StartArgs) ->
     % Create data directory if it doesn't exist
     filelib:ensure_dir("data/"),
     
-    % Get configuration
-    {ok, Port} = application:get_env(floaty_erl, port),
-    {ok, NoAuth} = application:get_env(floaty_erl, no_auth),
+    % Read configuration from environment variables or use defaults
+    Port = get_env_int("PORT", 8080),
+    NoAuth = get_env_bool("FLOATY_NO_AUTH", false),
+    Username = get_env_binary("FLOATY_USERNAME", <<"admin">>),
+    Password = get_env_binary("FLOATY_PASSWORD", <<"floaty">>),
+    CookieMaxAge = get_env_int("FLOATY_COOKIE_MAX_AGE", 259200),
+    
+    % Set configuration
+    application:set_env(floaty_erl, port, Port),
+    application:set_env(floaty_erl, no_auth, NoAuth),
+    application:set_env(floaty_erl, username, Username),
+    application:set_env(floaty_erl, password, Password),
+    application:set_env(floaty_erl, cookie_max_age, CookieMaxAge),
     
     % Initialize session storage ETS table
     ets:new(sessions, [named_table, public, set]),
@@ -25,15 +35,13 @@ start(_StartType, _StartArgs) ->
         true -> 
             io:format("Warning: Running in NO AUTH mode. Application is publicly accessible!~n");
         false ->
-            {ok, Username} = application:get_env(floaty_erl, username),
-            {ok, Password} = application:get_env(floaty_erl, password),
-            case {Username, Password} of
-                {<<"admin">>, _} ->
+            case Username of
+                <<"admin">> ->
                     io:format("Warning: Using default username 'admin'. Set FLOATY_USERNAME environment variable for production.~n");
                 _ -> ok
             end,
-            case {Username, Password} of
-                {_, <<"floaty">>} ->
+            case Password of
+                <<"floaty">> ->
                     io:format("Warning: Using default password 'floaty'. Set FLOATY_PASSWORD environment variable for production.~n");
                 _ -> ok
             end
@@ -71,3 +79,27 @@ stop(_State) ->
     ok.
 
 %% internal functions
+
+get_env_int(Name, Default) ->
+    case os:getenv(Name) of
+        false -> Default;
+        Value -> 
+            case string:to_integer(Value) of
+                {Int, _} when is_integer(Int) -> Int;
+                _ -> Default
+            end
+    end.
+
+get_env_bool(Name, Default) ->
+    case os:getenv(Name) of
+        false -> Default;
+        "true" -> true;
+        "false" -> false;
+        _ -> Default
+    end.
+
+get_env_binary(Name, Default) ->
+    case os:getenv(Name) of
+        false -> Default;
+        Value -> list_to_binary(Value)
+    end.
