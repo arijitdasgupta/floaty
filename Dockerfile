@@ -1,26 +1,30 @@
-FROM golang:1.25-alpine AS builder
+FROM erlang:26-alpine AS builder
+
+# Install git for fetching dependencies
+RUN apk --no-cache add git
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-RUN go mod download
+# Copy rebar config
+COPY rebar.config ./
+COPY config ./config
+COPY src ./src
 
-COPY main.go ./
+# Get dependencies and compile
+RUN rebar3 as prod compile
 
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o floaty .
-
-FROM alpine:latest
-
-RUN apk --no-cache add ca-certificates tzdata
+FROM erlang:26-alpine
 
 WORKDIR /
 
-COPY --from=builder /app/floaty .
+# Copy compiled application
+COPY --from=builder /app/_build/prod/lib ./lib
 COPY static ./static
 COPY templates ./templates
+COPY config ./config
 
 RUN mkdir -p /data
 
 EXPOSE 8080
 
-CMD ["./floaty"]
+CMD ["erl", "-pa", "lib/*/ebin", "-eval", "application:ensure_all_started(floaty_erl).", "-noshell"]

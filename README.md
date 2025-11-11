@@ -4,13 +4,12 @@
 
 _THIS IS NOT A PRODUCTION GRADE APP, ONLY MEANT FOR (my own) PERSONAL USAGE_
 
-_Almost entirely written with Claude Sonnet 4.5 (including this README)._
+_Originally written in Go, rewritten to Erlang._
 
 A simple web application that tracks multiple rolling totals with manual additions/subtractions.
 
 This is entirely a personal tool I made to keep track of my things.
 I have zero plans to improve this as of now.
-_Neither do I endorse the style of code that is in `main.go`_.
 That being said, if you do want to use it, feel free. It's decent looking, it's tiny and it works!
 
 ## TODOs
@@ -44,18 +43,28 @@ Each tracker gets:
 
 ### Run Locally (Development)
 
+Requirements:
+- Erlang/OTP 24 or later
+- rebar3
+
 ```bash
+# Compile the application
+rebar3 compile
+
 # Run the server (uses default username "admin" and password "floaty")
-go run main.go
+./start.sh
+
+# Or run directly with erl
+erl -pa _build/default/lib/*/ebin -eval "application:ensure_all_started(floaty_erl)." -noshell
 
 # Run with custom credentials
-FLOATY_USERNAME=myuser FLOATY_PASSWORD=mysecretpassword go run main.go
+FLOATY_USERNAME=myuser FLOATY_PASSWORD=mysecretpassword ./start.sh
 
 # Run with custom cookie expiration (e.g., 1 hour = 3600 seconds)
-FLOATY_COOKIE_MAX_AGE=3600 go run main.go
+FLOATY_COOKIE_MAX_AGE=3600 ./start.sh
 
 # Run without authentication (public access - use with caution!)
-FLOATY_NO_AUTH=true go run main.go
+FLOATY_NO_AUTH=true ./start.sh
 ```
 
 Access the app at http://localhost:8080
