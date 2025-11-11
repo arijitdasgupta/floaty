@@ -1,0 +1,23 @@
+{application, floaty_erl,
+ [{description, "Multiple Numbers Rolling Totals - Erlang Port"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {floaty_erl_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cowboy,
+    jsx
+   ]},
+  {env,[
+    {port, 8080},
+    {username, <<"admin">>},
+    {password, <<"floaty">>},
+    {cookie_max_age, 259200},
+    {no_auth, false}
+  ]},
+  {modules, []},
+
+  {licenses, ["Apache-2.0"]},
+  {links, []}
+ ]}.
