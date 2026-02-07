@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
 - pvc.yaml
 - deployment.yaml
+- ingress.yaml
 images:
 - name: floaty
   newName: registry.dazgupta.com/floaty

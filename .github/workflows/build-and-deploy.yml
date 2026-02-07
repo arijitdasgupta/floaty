@@ -85,4 +85,5 @@ jobs:
         run: |
           mkdir -p ~/.kube
           echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
+          sed -i 's/INGRESS_HOST_PLACEHOLDER/${{ secrets.INGRESS_HOST }}/g' k8s/ingress.yaml
           kubectl apply -k k8s/
