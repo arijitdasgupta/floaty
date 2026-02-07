@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: floaty
+  labels:
+    app: floaty
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: floaty
+  template:
+    metadata:
+      labels:
+        app: floaty
+    spec:
+      imagePullSecrets:
+        - name: registry-credentials
+      containers:
+        - name: floaty
+          image: floaty
+          ports:
+            - containerPort: 8080
+          env:
+            - name: FLOATY_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: floaty.secret
+                  key: USERNAME
+            - name: FLOATY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: floaty.secret
+                  key: PASSWORD
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: floaty-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: floaty
+spec:
+  selector:
+    app: floaty
+  ports:
+    - port: 80
+      targetPort: 8080
+

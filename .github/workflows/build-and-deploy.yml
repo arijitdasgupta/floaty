@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Deploy
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-and-push:
+  build-and-deploy:
     runs-on: ubuntu-latest
     
     steps:
@@ -68,3 +68,20 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag ${{ steps.get_version.outputs.new_version }}
           git push origin ${{ steps.get_version.outputs.new_version }}
+      
+      - name: Update Kustomization image tag
+        run: |
+          cd k8s
+          kustomize edit set image floaty=${{ secrets.DOCKER_REGISTRY_URL }}/floaty:${{ steps.get_version.outputs.new_version }}
+          cd ..
+          git add k8s/kustomization.yaml
+          git commit -m "Update image to ${{ steps.get_version.outputs.new_version }}" || true
+          git push origin main
+      
+      - name: Deploy to Kubernetes
+        env:
+          KUBECONFIG_DATA: ${{ secrets.KUBECONFIG }}
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBECONFIG_DATA" | base64 -d > ~/.kube/config
+          kubectl apply -k k8s/
