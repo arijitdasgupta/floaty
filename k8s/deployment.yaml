@@ -26,12 +26,12 @@ spec:
               valueFrom:
                 secretKeyRef:
                   name: floaty.secret
-                  key: username
+                  key: USERNAME
             - name: FLOATY_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: floaty.secret
-                  key: password
+                  key: PASSWORD
           volumeMounts:
             - name: data
               mountPath: /data
