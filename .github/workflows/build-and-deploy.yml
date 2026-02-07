@@ -71,6 +71,7 @@ jobs:
       
       - name: Update Kustomization image tag
         run: |
+          git pull --rebase origin main
           cd k8s
           kustomize edit set image floaty=${{ secrets.DOCKER_REGISTRY_URL }}/floaty:${{ steps.get_version.outputs.new_version }}
           cd ..
