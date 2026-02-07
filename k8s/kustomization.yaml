@@ -5,7 +5,3 @@ resources:
 - pvc.yaml
 - deployment.yaml
 - ingress.yaml
-images:
-- name: floaty
-  newName: registry.dazgupta.com/floaty
-  newTag: v0.0.20
