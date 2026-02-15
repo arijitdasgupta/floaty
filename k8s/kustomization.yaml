@@ -7,4 +7,4 @@ resources:
 images:
 - name: floaty
   newName: registry.dazgupta.com/floaty
-  newTag: v0.0.22
+  newTag: v0.0.23
