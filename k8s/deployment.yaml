@@ -38,6 +38,7 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+              subPath: floaty
           resources:
             limits:
               memory: 64Mi
@@ -46,7 +47,7 @@ spec:
       volumes:
         - name: data
           persistentVolumeClaim:
-            claimName: floaty-data
+            claimName: apps-data
 ---
 apiVersion: v1
 kind: Service
@@ -59,4 +60,3 @@ spec:
   ports:
     - port: 80
       targetPort: 8080
-
